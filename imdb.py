@@ -37,9 +37,9 @@ input = Input(shape=(maxlen,))
 embedded = Embedding(max_features, 128)(input)
 
 def get_lstm_model():
-  input = Input(shape=(maxlen, 128))
-  output = Bidirectional(LSTM(64, return_sequences=True))(input)
-  return Model(input, output)
+    input = Input(shape=(maxlen, 128))
+    output = Bidirectional(LSTM(64, return_sequences=True))(input)
+    return Model(input, output)
 
 resnet = Residual(get_lstm_model())(embedded)
 maxpool = Lambda(lambda x: K.max(x, axis=1, keepdims=False),
