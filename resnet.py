@@ -54,30 +54,26 @@ class Residual(Wrapper):
     super(Residual, self).__init__(layer)
 
   def build(self, input_shape):
-    if not self.layer.built:
-      self.layer.build(input_shape)
-      self.layer.built = True
-
-    self.input_spec = [InputSpec(shape=input_shape)]
-    output_shape = self.layer.get_output_shape_for(input_shape)
-
-    if self.merge_mode == 'weighted':
-      self.U = K.random_uniform_variable(output_shape[1:], 0, 1,
-                                         name='{}_U'.format(self.name))
-
-    super(Residual, self).build()
-
-  def get_output_shape_for(self, input_shape):
-    return input_shape
-
-  def call(self, x, mask=None):
-    input_shape = self.input_spec[0].shape
     output_shape = self.layer.get_output_shape_for(input_shape)
     if output_shape != input_shape:
       raise Exception('Cannot apply residual to layer "{}": '
                       'mismatching input and output shapes'
                       '"{}" and "{}"'
                       .format(self.layer.name, input_shape, output_shape))
+    if not self.layer.built:
+      self.layer.build(input_shape)
+      self.layer.built = True
+    self.input_spec = [InputSpec(shape=input_shape)]
+    output_shape = self.layer.get_output_shape_for(input_shape)
+    if self.merge_mode == 'weighted':
+      self.U = K.random_uniform_variable(output_shape[1:], 0, 1,
+                                         name='{}_U'.format(self.name))
+    super(Residual, self).build()
+
+  def get_output_shape_for(self, input_shape):
+    return input_shape
+
+  def call(self, x, mask=None):
     layer_output = self.layer.call(x, mask)
     if isinstance(self.merge_mode, str):
       output = merge([x, layer_output], self.merge_mode, **self.merge_params)
