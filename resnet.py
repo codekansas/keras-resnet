@@ -12,29 +12,43 @@ class Residual(Wrapper):
 
   For an input `x` and a model `F(x)`, the residual wrapper gives the output
   `y = x + F(x)`. In this configuration, the output of F(x) must have the
-  same shape as x. Setting `merge_mode='weighted'` defines an additional vector
-  `U` such that the output becomes a partition between x and F(x), i.e.
-  `y = U * x + (1 - U) * F(x)`. Other merge modes are supported, with their
-  corresponding arguments passed as keyword arguments.
-
-  The wrapper can be applied to give any model a residual. For example:
+  same shape as x. Other merge modes are supported besides summation.
 
   ```python
       input = Input(shape=(5,))
 
       # Apply the residual normally
-      output1 = Residual(Dense(5))(input)
+      output1 = Residual(Dense(5), mode='sum')(input)
 
       # Throws an exception due to mismatching shapes
-      output2 = Residual(Dense(3))(input)
+      output2 = Residual(Dense(3), mode='sum')(input)
+
+      # Product: `y = x * F(x)`
+      output3 = Residual(Dense(5), mode='mul')(input)
+  ```
+
+  For more modes, see: https://keras.io/layers/core/#merge
+
+  Alternatively, a function which takes the input and the layer output
+  can be passed to define the merge:
+
+  ```python
+      from keras.layers import merge
+      def diff_merge(x, fx):
+          diff = lambda x: x[1] - x[0]
+          return merge([x, fx], mode=diff, output_shape=lambda x: x)
+
+      # Difference: `y = F(x) - x`
+      output4 = Residual(Dense(5), mode=diff_merge)(input)
   ```
 
   Arguments:
       layer: The layer to wrap
-      merge_mode: Like regular merge function, but with extra option 'weighted'
+      merge_mode: The merge operation
+      merge_params: Extra keyword arguments to pass to the merge function
   """
-  def __init__(self, layer, merge_mode='sum', **merge_params):
-    self.merge_mode = merge_mode
+  def __init__(self, layer, mode='sum', **merge_params):
+    self.merge_mode = mode
     self.merge_params = merge_params
     self.supports_masking = True
     super(Residual, self).__init__(layer)
@@ -65,8 +79,8 @@ class Residual(Wrapper):
                       '"{}" and "{}"'
                       .format(self.layer.name, input_shape, output_shape))
     layer_output = self.layer.call(x, mask)
-    if self.merge_mode == 'weighted':
-      output = x * self.U + layer_output * (1 - self.U)
-    else:
+    if isinstance(self.merge_mode, str):
       output = merge([x, layer_output], self.merge_mode, **self.merge_params)
+    else:
+      output = self.merge_mode(x, layer_output)
     return output
