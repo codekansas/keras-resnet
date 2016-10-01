@@ -2,6 +2,7 @@
 
 # misc
 *.pyc
+pylearn2/
 
 # virtualenv
 venv/
