@@ -1,3 +1,13 @@
+# .gitignore
+
+# misc
 *.pyc
+
+# virtualenv
+venv/
+
+# ides
+.project
+.pydevproject
 .idea/
 
