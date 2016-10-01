@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 from keras import backend as K
 from keras.engine import InputSpec
-from keras.layers import Wrapper, merge
+from keras.layers import Wrapper, Merge
 
 
 class Residual(Wrapper):
@@ -16,13 +16,13 @@ class Residual(Wrapper):
         input = Input(shape=(5,))
 
         # Apply the residual normally
-        output1 = Residual(Dense(5), mode='sum')(input)
+        output1 = Residual(Dense(5), merge_mode='sum')(input)
 
         # Throws an exception due to mismatching shapes
-        output2 = Residual(Dense(3), mode='sum')(input)
+        output2 = Residual(Dense(3), merge_mode='sum')(input)
 
         # Product: `y = x * F(x)`
-        output3 = Residual(Dense(5), mode='mul')(input)
+        output3 = Residual(Dense(5), merge_mode='mul')(input)
     ```
 
     For more modes, see: https://keras.io/layers/core/#merge
@@ -31,25 +31,23 @@ class Residual(Wrapper):
     can be passed to define the merge:
 
     ```python
-        from keras.layers import merge
-        def diff_merge(x, fx):
+        from keras.layers import Merge
+        def diff_merge():  # x_fx = [x, fx]
             diff = lambda x: x[1] - x[0]
-            return merge([x, fx], mode=diff, output_shape=lambda x: x)
+            return Merge(mode=diff, output_shape=lambda x: x)
 
         # Difference: `y = F(x) - x`
-        output4 = Residual(Dense(5), mode=diff_merge)(input)
+        output4 = Residual(Dense(5), merge_mode=diff_merge())(input)
     ```
 
     Arguments:
         layer: The layer to wrap
         merge_mode: The merge operation
-        merge_params: Extra keyword arguments to pass to the merge function
     """
-    def __init__(self, layer, mode='sum', **merge_params):
-        self.merge_mode = mode
-        self.merge_params = merge_params
+    def __init__(self, layer, merge_mode='sum', **kwargs):
+        self.merge_mode = merge_mode
         self.supports_masking = True
-        super(Residual, self).__init__(layer)
+        super(Residual, self).__init__(layer, **kwargs)
 
     def build(self, input_shape):
         output_shape = self.layer.get_output_shape_for(input_shape)
@@ -74,7 +72,21 @@ class Residual(Wrapper):
     def call(self, x, mask=None):
         layer_output = self.layer.call(x, mask)
         if isinstance(self.merge_mode, str):
-            output = merge([x, layer_output], self.merge_mode, **self.merge_params)
-        else:
-            output = self.merge_mode(x, layer_output)
+            self.merge_mode = Merge(mode=self.merge_mode)
+        output = self.merge_mode([x, layer_output])
         return output
+    
+    @classmethod
+    def from_config(cls, config):
+        from keras.utils.layer_utils import layer_from_config
+        merge_mode = layer_from_config(config.pop('merge_mode'))
+        residual = super(Residual, cls).from_config(config)
+        residual.merge_mode = merge_mode
+        return residual
+    
+    def get_config(self):
+        config = {"merge_mode": {'class_name': 'Merge',
+                                 'config': self.merge_mode.get_config()}}
+        base_config = super(Residual, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+

@@ -6,8 +6,8 @@ the Residual wrapper on ConvNets.
 See: https://github.com/fchollet/keras/blob/master/examples/mnist_cnn.py
 """
 from __future__ import print_function
-import numpy as np
-np.random.seed(42)
+from numpy import random
+random.seed(42)
 
 from keras.datasets import mnist
 from keras.models import Model
@@ -19,7 +19,7 @@ from resnet import Residual
 
 batch_size = 128
 nb_classes = 10
-nb_epoch = 12
+nb_epoch = 3
 
 img_rows, img_cols = 28, 28
 pool_size = (2, 2)
@@ -49,42 +49,30 @@ Y_train = np_utils.to_categorical(y_train, nb_classes)
 Y_test = np_utils.to_categorical(y_test, nb_classes)
 
 # Model
-input = Input(shape=input_shape)
+input_var = Input(shape=input_shape)
 
-def get_deep_model(input):
-    conv1 = Convolution2D(8, kernel_size[0], kernel_size[1],
-                          border_mode='valid', activation='relu')(input)
-    resnet = conv1
-    for i in range(5):
-        resnet = Residual(Convolution2D(8, kernel_size[0], kernel_size[1],
-                                      border_mode='same'))(resnet)
-        resnet = Activation('relu')(resnet)
-    mxpool = MaxPooling2D(pool_size=pool_size)(resnet)
-    dropout = Dropout(0.25)(mxpool)
-    flat = Flatten()(dropout)
-    dense = Dense(128, activation='relu')(flat)
-    return dense
-
-def get_wide_model(input):
-    conv = Convolution2D(128, kernel_size[0], kernel_size[1],
-                         border_mode='valid', activation='relu')(input)
-    mxpool = MaxPooling2D(pool_size=pool_size)(conv)
-    dropout = Dropout(0.25)(mxpool)
-    flat = Flatten()(dropout)
-    dense = Dense(128, activation='relu')(flat)
-    return dense
-
-merged = merge([get_wide_model(input), get_deep_model(input)], mode='max')
-dropout = Dropout(0.5)(merged)
+conv1 = Convolution2D(8, kernel_size[0], kernel_size[1],
+                      border_mode='valid', activation='relu')(input_var)
+resnet = conv1
+for _ in range(5):
+    resnet = Residual(Convolution2D(8, kernel_size[0], kernel_size[1],
+                                  border_mode='same'))(resnet)
+    resnet = Activation('relu')(resnet)
+mxpool = MaxPooling2D(pool_size=pool_size)(resnet)
+dropout = Dropout(0.25)(mxpool)
+flat = Flatten()(dropout)
+dense = Dense(128, activation='relu')(flat)
+dropout = Dropout(0.5)(dense)
 softmax = Dense(nb_classes, activation='softmax')(dropout)
 
-model = Model(input=[input], output=[softmax])
+model = Model(input=[input_var], output=[softmax])
 model.compile(loss='categorical_crossentropy',
               optimizer='adadelta',
               metrics=['accuracy'])
 
 model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
           verbose=1, validation_data=(X_test, Y_test))
+model.save('mnist_model.h5')
 score = model.evaluate(X_test, Y_test, verbose=0)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
