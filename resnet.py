@@ -1,10 +1,8 @@
 from __future__ import absolute_import
 
-import operator
-
 from keras import backend as K
 from keras.engine import InputSpec
-from keras.layers import initializations, Wrapper, merge
+from keras.layers import Wrapper, merge
 
 
 class Residual(Wrapper):
