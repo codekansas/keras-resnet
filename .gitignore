@@ -15,3 +15,7 @@ venv/
 # models
 *.h5
 
+# images
+*images/
+*images.py
+

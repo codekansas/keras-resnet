@@ -1,18 +1,16 @@
 """Generate images at various layers"""
 from __future__ import print_function
-import numpy as np
 
-
-try:
-    import PIL.Image as Image
-except ImportError:
-    import Image
+import PIL.Image as Image
 from pylearn2.utils.image import tile_raster_images
 
+from keras.layers import merge
 from keras.datasets import mnist
 from keras.utils import np_utils
 from keras import backend as K
 from resnet import Residual
+
+folder = 'conv_images'
 
 batch_size = 128
 nb_classes = 10
@@ -39,24 +37,51 @@ Y_test = np_utils.to_categorical(y_test, nb_classes)
 
 # Model
 from keras.models import load_model, Model
-model = load_model('mnist_model.h5', custom_objects={'Residual': Residual})
+model = load_model('mnist_nonresidual_model.h5', custom_objects={'Residual': Residual})
 
 input_layer = model.get_layer('input_1')
 input_tensor = input_layer.inbound_nodes[-1].output_tensors[0]
 
-for i in range(1, 6):
-    conv = model.get_layer('residual_%d' % i)
-    weights = conv.get_weights()[0].reshape(3, 3, 8*8)
-    tiled = tile_raster_images(X=weights.T, img_shape=(3, 3), tile_shape=(8, 8), tile_spacing=(1, 1))
-    image = Image.fromarray(tiled)
-    image.save('residual_images/activations_of_layer_%d.png' % i)
-    
-    layer = model.get_layer('activation_%d' % i)
+import numpy as np
+np.random.seed(42)  # @UndefinedVariable
+idx = np.random.randint(2, 100)  # @UndefinedVariable
+
+def save_layer_output(layer, name, shape):
     tensor = layer.inbound_nodes[-1].output_tensors[0]
-    m = Model(input_tensor, tensor)
-    m.compile(optimizer='sgd', loss='mse')
-    pred = m.predict(X_test[1:2])
-    reshaped = pred.reshape(26, 26, 8)
-    tiled = tile_raster_images(X=reshaped.T, img_shape=(26, 26), tile_shape=(2, 4), tile_spacing=(1, 1))
+    model = Model(input_tensor, tensor)
+    model.compile(optimizer='sgd', loss='mse')
+    pred = model.predict(X_test[idx-1:idx])  # @UndefinedVariable
+    reshaped = pred.reshape(*shape)
+    tiled = tile_raster_images(X=reshaped.T, img_shape=shape[:-1], tile_shape=(2, shape[-1]/2), tile_spacing=(1, 1))
     image = Image.fromarray(tiled)
-    image.save('residual_images/output_at_layer_%d.png' % i)
+    image.save('%s/%s' % (folder, name))
+
+def save_weights(layer, name, shape):
+    weights = layer.get_weights()[0].reshape(*shape)
+    tiled = tile_raster_images(X=weights.T, img_shape=shape[:-1], tile_shape=(4, 4), tile_spacing=(1, 1))
+    image = Image.fromarray(tiled)
+    image.save('%s/%s' % (folder, name))
+
+for i in range(2, 7):  
+    # get only the residual
+    layer1 = model.get_layer('convolution2d_%d' % (i - 1) if i > 1 else 'convolution2d_1')
+    layer2 = model.get_layer('convolution2d_%d' % i)
+    l1_tensor = layer1.inbound_nodes[-1].output_tensors[0]
+    l2_tensor = layer2.inbound_nodes[-1].output_tensors[0]
+    diff = merge([l2_tensor, l1_tensor], mode=lambda x: x[1] - x[0], output_shape=lambda x: x[0])
+    diff_model = Model(input_tensor, diff)
+    diff_model.compile(optimizer='sgd', loss='mse')
+    pred = diff_model.predict(X_test[idx-1:idx])
+    reshaped = pred.reshape(26, 26, 8)
+    tiled = tile_raster_images(reshaped.T, (26, 26), (2, 4), (1, 1))
+    image = Image.fromarray(tiled)
+    image.save('%s/residual_at_layer_%d.png' % (folder, i))
+    
+    # save the filters
+    save_weights(model.get_layer('convolution2d_%d' % i), 'filters_at_layer_%d.png' % i, (3, 3, 64))
+    
+    # get the output before applying the activation function
+    save_layer_output(model.get_layer('convolution2d_%d' % i), 'preactivation_at_layer_%d.png' % i, (26, 26, 8))
+    
+    # get the output after applying the actvation function
+    save_layer_output(model.get_layer('activation_%d' % (i-1)), 'activation_at_layer_%d.png' % i, (26, 26, 8))

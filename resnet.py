@@ -60,10 +60,6 @@ class Residual(Wrapper):
             self.layer.build(input_shape)
             self.layer.built = True
         self.input_spec = [InputSpec(shape=input_shape)]
-        output_shape = self.layer.get_output_shape_for(input_shape)
-        if self.merge_mode == 'weighted':
-            self.U = K.random_uniform_variable(output_shape[1:], 0, 1,
-                                               name='{}_U'.format(self.name))
         super(Residual, self).build()
 
     def get_output_shape_for(self, input_shape):
