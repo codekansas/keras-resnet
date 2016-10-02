@@ -11,6 +11,7 @@ venv/
 .project
 .pydevproject
 .idea/
+.settings/
 
 # models
 *.h5

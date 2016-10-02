@@ -34,7 +34,7 @@ class Residual(Wrapper):
         from keras.layers import Merge
         def diff_merge():  # x_fx = [x, fx]
             diff = lambda x: x[1] - x[0]
-            return Merge(mode=diff, output_shape=lambda x: x)
+            return Merge(mode=diff, output_shape=lambda x: x[0])
 
         # Difference: `y = F(x) - x`
         output4 = Residual(Dense(5), merge_mode=diff_merge())(input)

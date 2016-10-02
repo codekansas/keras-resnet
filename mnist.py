@@ -19,6 +19,7 @@ from resnet import Residual
 
 batch_size = 128
 nb_classes = 10
+nb_epoch = 12
 
 img_rows, img_cols = 28, 28
 pool_size = (2, 2)
@@ -50,24 +51,29 @@ Y_test = np_utils.to_categorical(y_test, nb_classes)
 # Model
 input_var = Input(shape=input_shape)
 
-conv1 = Convolution2D(8, kernel_size[0], kernel_size[1],
+conv1 = Convolution2D(64, kernel_size[0], kernel_size[1],
                       border_mode='valid', activation='relu')(input_var)
-resnet = conv1
-for _ in range(40):
+mxpool = MaxPooling2D(pool_size=pool_size)(conv1)
+conv2 = Convolution2D(8, kernel_size[0], kernel_size[1],
+                      border_mode='valid', activation='relu')(mxpool)
+
+resnet = conv2
+for _ in range(5):
     resnet = Residual(Convolution2D(8, kernel_size[0], kernel_size[1],
                                   border_mode='same'))(resnet)
     resnet = Activation('relu')(resnet)
+
 mxpool = MaxPooling2D(pool_size=pool_size)(resnet)
-dropout = Dropout(0.25)(mxpool)
-flat = Flatten()(dropout)
-softmax = Dense(nb_classes, activation='softmax')(flat)
+flat = Flatten()(mxpool)
+dropout = Dropout(0.5)(flat)
+softmax = Dense(nb_classes, activation='softmax')(dropout)
 
 model = Model(input=[input_var], output=[softmax])
 model.compile(loss='categorical_crossentropy',
               optimizer='adadelta',
               metrics=['accuracy'])
 
-model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=12,
+model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
           verbose=1, validation_data=(X_test, Y_test))
 model.save('mnist_model.h5')
 score = model.evaluate(X_test, Y_test, verbose=0)
