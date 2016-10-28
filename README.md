@@ -7,3 +7,5 @@
  - `resnet.py` The residual network implementation
  - `mnist.py` Applying the Residual wrapper to convolutional layers
  - `imdb.py` Applying the Residual wrapper to recurrent layers
+
+![Bored Yann LeCun](bored_lecun.png)
