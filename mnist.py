@@ -19,7 +19,7 @@ from resnet import Residual
 
 batch_size = 128
 nb_classes = 10
-nb_epoch = 12
+nb_epoch = 1
 
 img_rows, img_cols = 28, 28
 pool_size = (2, 2)
@@ -52,10 +52,10 @@ Y_test = np_utils.to_categorical(y_test, nb_classes)
 input_var = Input(shape=input_shape)
 
 conv1 = Convolution2D(64, kernel_size[0], kernel_size[1],
-                      border_mode='valid', activation='relu')(input_var)
-mxpool = MaxPooling2D(pool_size=pool_size)(conv1)
+                      border_mode='same', activation='relu')(input_var)
+# conv1 = MaxPooling2D(pool_size=pool_size)(conv1)
 conv2 = Convolution2D(8, kernel_size[0], kernel_size[1],
-                      border_mode='valid', activation='relu')(mxpool)
+                      border_mode='same', activation='relu')(conv1)
 
 resnet = conv2
 for _ in range(5):
@@ -79,3 +79,4 @@ model.save('mnist_model.h5')
 score = model.evaluate(X_test, Y_test, verbose=0)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
+
